@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wordle Scores">
+<title>Wordle Scores</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f9f9f7;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 1rem;
+  }
+  .app { max-width: 480px; margin: 0 auto; }
+
+  .header { text-align: center; padding: 1.2rem 0 1.4rem; }
+  .header h1 { font-size: 24px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #1a1a1a; }
+  .tile-row { display: flex; justify-content: center; gap: 6px; margin: 10px 0 8px; }
+  .tile { width: 28px; height: 28px; border-radius: 3px; }
+  .t-green  { background: #6aaa64; }
+  .t-yellow { background: #c9b458; }
+  .t-gray   { background: #787c7e; }
+  .header p { font-size: 15px; color: #6b6b6b; }
+
+  .week-label { font-size: 14px; color: #9a9a9a; text-align: center; margin-bottom: 1rem; }
+
+  .name-edit { display: flex; gap: 8px; justify-content: center; margin-bottom: 1rem; }
+  .name-input {
+    font-size: 15px; width: 100px; text-align: center;
+    padding: 6px 8px; border: 1px solid #ddd; border-radius: 8px;
+    background: #fff; color: #1a1a1a;
+  }
+  .name-input:focus { outline: none; border-color: #6aaa64; }
+
+  .day-card {
+    background: #fff; border: 1px solid #e8e8e8;
+    border-radius: 12px; padding: 0.85rem 1rem; margin-bottom: 8px;
+  }
+  .day-row { display: flex; align-items: center; gap: 10px; }
+  .day-name { font-size: 15px; font-weight: 600; color: #6b6b6b; width: 34px; flex-shrink: 0; }
+  .players { display: flex; gap: 8px; flex: 1; }
+  .player-input { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 5px; }
+  .player-label { font-size: 13px; color: #6b6b6b; }
+  .score-wrap { display: flex; align-items: center; gap: 4px; width: 100%; justify-content: center; }
+  .score-btn {
+    width: 32px; height: 38px;
+    border: 1px solid #ddd; border-radius: 8px;
+    background: #fff; color: #1a1a1a;
+    font-size: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; line-height: 1; -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .score-btn:active { background: #f0f0f0; }
+  .score-display { font-size: 20px; font-weight: 600; color: #1a1a1a; min-width: 24px; text-align: center; }
+  .score-empty { color: #ccc; }
+
+  .totals { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin: 1.5rem 0 0.75rem; }
+  .total-card { border-radius: 10px; padding: 0.9rem 0.5rem; text-align: center; }
+  .rank-1 { background: #6aaa6420; border: 1.5px solid #6aaa64; }
+  .rank-2 { background: #c9b45820; border: 1.5px solid #c9b458; }
+  .rank-3 { background: #f5f5f3; border: 1px solid #e8e8e8; }
+  .total-name { font-size: 13px; color: #6b6b6b; margin-bottom: 4px; }
+  .total-score { font-size: 28px; font-weight: 600; color: #1a1a1a; }
+
+  .winner-banner {
+    background: #6aaa6420; border: 1px solid #6aaa64;
+    border-radius: 10px; padding: 0.7rem 1rem;
+    text-align: center; font-size: 15px; font-weight: 600;
+    color: #4a8a44; margin: 0.75rem 0 1rem;
+  }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 0.5rem; padding-bottom: 2rem; }
+  .btn {
+    flex: 1; padding: 0.75rem; font-size: 15px;
+    border: 1px solid #ddd; border-radius: 10px;
+    background: #fff; color: #1a1a1a; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { background: #f0f0f0; }
+  .btn-danger { color: #c0392b; border-color: #e8c8c8; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>Wordle scores</h1>
+    <div class="tile-row">
+      <div class="tile t-green"></div>
+      <div class="tile t-yellow"></div>
+      <div class="tile t-gray"></div>
+      <div class="tile t-green"></div>
+      <div class="tile t-yellow"></div>
+    </div>
+    <p>Track your weekly group results</p>
+  </div>
+
+  <div class="name-edit" id="nameRow"></div>
+  <div class="week-label" id="weekLabel"></div>
+  <div id="days"></div>
+  <div class="totals" id="totals"></div>
+  <div id="winner"></div>
+  <div class="btn-row">
+    <button class="btn" onclick="copyResults()">Copy results</button>
+    <button class="btn btn-danger" onclick="resetWeek()">Reset week</button>
+  </div>
+</div>
+
+<script>
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+let names = JSON.parse(localStorage.getItem('wl_names') || '["Imo","Sam","Mum"]');
+let scores = JSON.parse(localStorage.getItem('wl_scores') || 'null') || Array(7).fill(null).map(() => [null,null,null]);
+
+function getWeekLabel() {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - ((day + 6) % 7));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const fmt = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return fmt(mon) + '\u2013' + fmt(sun);
+}
+
+function save() {
+  localStorage.setItem('wl_names', JSON.stringify(names));
+  localStorage.setItem('wl_scores', JSON.stringify(scores));
+}
+
+function setScore(di, pi, delta) {
+  const cur = scores[di][pi] || 0;
+  let next = cur + delta;
+  if (next < 1) next = 0;
+  if (next > 9) next = 9;
+  scores[di][pi] = next === 0 ? null : next;
+  save();
+  const el = document.getElementById('score-' + di + '-' + pi);
+  el.textContent = scores[di][pi] || '-';
+  el.className = 'score-display' + (scores[di][pi] ? '' : ' score-empty');
+  renderTotals();
+}
+
+function render() {
+  document.getElementById('weekLabel').textContent = getWeekLabel();
+
+  document.getElementById('nameRow').innerHTML = names.map((n, i) =>
+    `<input class="name-input" value="${n}" maxlength="10"
+      oninput="names[${i}]=this.value;save();renderLabels()" placeholder="Player ${i+1}">`
+  ).join('');
+
+  document.getElementById('days').innerHTML = DAYS.map((day, di) =>
+    `<div class="day-card">
+      <div class="day-row">
+        <span class="day-name">${day}</span>
+        <div class="players">
+          ${names.map((n, pi) => `
+            <div class="player-input">
+              <span class="player-label" id="label-${di}-${pi}">${n || 'P'+(pi+1)}</span>
+              <div class="score-wrap">
+                <button class="score-btn" onclick="setScore(${di},${pi},-1)">&#8722;</button>
+                <span class="score-display${scores[di][pi] ? '' : ' score-empty'}" id="score-${di}-${pi}">${scores[di][pi] || '-'}</span>
+                <button class="score-btn" onclick="setScore(${di},${pi},1)">&#43;</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>`
+  ).join('');
+
+  renderTotals();
+}
+
+function renderLabels() {
+  DAYS.forEach((_, di) => {
+    names.forEach((n, pi) => {
+      const el = document.getElementById('label-' + di + '-' + pi);
+      if (el) el.textContent = n || 'P' + (pi + 1);
+    });
+  });
+}
+
+function renderTotals() {
+  const totals = names.map((_, pi) =>
+    scores.reduce((sum, day) => sum + (day[pi] ? Number(day[pi]) : 0), 0)
+  );
+
+  const ranked = totals.map((t, i) => ({ i, t })).filter(x => x.t > 0).sort((a, b) => a.t - b.t);
+  const rankMap = {};
+  ranked.forEach((x, pos) => rankMap[x.i] = pos + 1);
+
+  document.getElementById('totals').innerHTML = names.map((n, i) => {
+    const r = rankMap[i] || 0;
+    const cls = r === 1 ? 'rank-1' : r === 2 ? 'rank-2' : 'rank-3';
+    return `<div class="total-card ${cls}">
+      <div class="total-name">${n || 'P'+(i+1)}</div>
+      <div class="total-score">${totals[i]}</div>
+    </div>`;
+  }).join('');
+
+  const anyFilled = totals.some(t => t > 0);
+  const winnerEl = document.getElementById('winner');
+  if (!anyFilled) { winnerEl.innerHTML = ''; return; }
+
+  const min = Math.min(...totals.filter(t => t > 0));
+  const winners = names.filter((_, i) => totals[i] === min && totals[i] > 0);
+  winnerEl.innerHTML = winners.length === 1
+    ? `<div class="winner-banner">Leading: ${winners[0]} with ${min}</div>`
+    : `<div class="winner-banner">Tied: ${winners.join(' & ')} with ${min}</div>`;
+}
+
+function resetWeek() {
+  if (confirm('Reset all scores for this week?')) {
+    scores = Array(7).fill(null).map(() => [null, null, null]);
+    save();
+    render();
+  }
+}
+
+function copyResults() {
+  const totals = names.map((_, pi) =>
+    scores.reduce((sum, day) => sum + (day[pi] ? Number(day[pi]) : 0), 0)
+  );
+  const sorted = [...names.map((n, i) => ({ n, t: totals[i] }))].sort((a, b) => a.t - b.t);
+  const text = 'Wordle week results\n' + getWeekLabel() + '\n\n' +
+    sorted.map((p, i) => `${i+1}. ${p.n}: ${p.t}`).join('\n');
+  navigator.clipboard.writeText(text).then(() => alert('Copied!'));
+}
+
+render();
+</script>
+</body>
+</html>
